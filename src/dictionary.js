@@ -7,23 +7,20 @@ const dictionary = (schema) => {
     record(
       keys,
       ...keys.map((key) => schema[key])
-    )((b, sinks) => {
-      console.log("INNER:", b);
-
-      return connect(
+    )((b, sinks) =>
+      connect(
         {
           ...b,
           _debug: `{ ${keys
             .map((key) => {
               const nested = schema[key]((b) => b);
-              console.log("NESTED:", nested);
               return `${key}: ${nested._debug || nested.name}`;
             })
             .join(", ")} }`,
         },
         sinks
-      );
-    });
+      )
+    );
 };
 
 export default dictionary;

@@ -3,6 +3,13 @@ import dictionary from "./dictionary";
 import { testBijection } from "./utils/test-utils";
 
 describe("Dictionary bijection", () => {
+  // Forward direction: right-to-left
+  //
+  //            |<----------------------------------------------------------|
+  // name <---- +                                                           |
+  //            |<---|                                                      . <-- record('meta', 'authorName')
+  //                 . <- record('name', 'email') --> record('author') <----|
+  // email <---------|
   const b1 = bijection(({ sink }) => {
     const name = sink("name");
     const email = sink("email");
@@ -14,14 +21,6 @@ describe("Dictionary bijection", () => {
       name,
     });
   });
-
-  // Forward direction: right-to-left
-  //
-  //            |<----------------------------------------------------------|
-  // name <---- *                                                           |
-  //            |<---|                                                      . <-- record('meta', 'authorName')
-  //                 . <- record('name', 'email') --> record('author') <----|
-  // email <---------|
 
   testBijection(
     b1,
@@ -57,6 +56,8 @@ describe("Dictionary bijection", () => {
   });
   testBijection(b5, { x: 1, y: 2, p: { x: 1, y: 2 } }, [1, 2], { useEqual: true });
   it(`${b5._debug}: { x: 1, y: 2, p: { x: 100, y: 100 } } -> error`, () => {
-    b5.forward({ x: 1, y: 2, p: { x: 100, y: 100 } });
+    expect(() => {
+      b5.forward({ x: 1, y: 2, p: { x: 100, y: 100 } });
+    }).toThrow();
   });
 });
