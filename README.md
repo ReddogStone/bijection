@@ -2,7 +2,7 @@
 
 An implementation of the bijection abstraction in JavaScript.
 A bijection is represented by two functions `forward` and `backward`.
-Bijections form an Arrow in the Haskell sense (https://en.wikibooks.org/wiki/Haskell/Understanding_arrows)
+Bijections conform to an Arrow-like interface in the Haskell sense (https://en.wikibooks.org/wiki/Haskell/Understanding_arrows)
 and can be combined in various ways.
 
 # Motivation

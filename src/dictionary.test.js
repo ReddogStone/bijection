@@ -8,7 +8,7 @@ describe("Dictionary bijection", () => {
   //            |<----------------------------------------------------------|
   // name <---- +                                                           |
   //            |<---|                                                      . <-- record('meta', 'authorName')
-  //                 . <- record('name', 'email') --> record('author') <----|
+  //                 . <- record('name', 'email') <-- record('author') <----|
   // email <---------|
   const b1 = bijection(({ sink }) => {
     const name = sink("name");
