@@ -1,14 +1,12 @@
+import BijectionBase from "./bijection-base";
+
 const id = (x) => x;
 
-const identity = (sink) => (connect) =>
-  connect(
-    {
-      _debug: "ID",
-      arity: { left: 1, right: 1 },
-      forward: id,
-      backward: id,
-    },
-    [sink]
-  );
+const identity = () =>
+  BijectionBase({
+    _debug: "ID",
+    forward: id,
+    backward: id,
+  });
 
 export default identity;

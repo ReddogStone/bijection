@@ -1,90 +1,126 @@
 import BijectionBase from "./bijection-base";
+import Arrow from "./arrow";
+import identity from "./identity";
 
-export default function bijection(context) {
-  const sinks = [];
+const bijectionArrow = Arrow({
+  id: identity,
+  con: (source, backwardMapping, sinks) => {
+    // console.log("CON:", source, backwardMapping, sinks);
 
-  const sink = (name) => {
-    const result = { name };
-    sinks.push(result);
-    return () => result;
-  };
-
-  const connect = (bijection, sinks) => ({
-    b: bijection,
-    sinks: sinks.map((sink) => sink(connect)),
-  });
-
-  const source = context({ sink })(connect);
-
-  // console.log("SOURCE:", source);
-
-  const forward = (sinkMap, node, x) => {
-    // console.log("FORWARD:", node, x);
-
-    if (sinkMap.has(node)) {
-      const sinkValues = sinkMap.get(node);
-      sinkValues.push(x);
-      return;
-    }
-
-    const result = node.b.forward(x);
-    const arity = node.b.arity.right;
-    const results = arity === 1 ? [result] : result;
-
-    node.sinks.forEach((sink, i) => {
-      forward(sinkMap, sink, results[i]);
+    const forwardMapping = new Map();
+    backwardMapping.forEach((sinkIndex, inputIndex) => {
+      const sink = sinks[sinkIndex].sink;
+      const mergeGroup = forwardMapping.get(sink) || [];
+      mergeGroup.push(inputIndex);
+      forwardMapping.set(sink, mergeGroup);
     });
-  };
 
-  const backward = (node, valueMap) => {
-    // console.log("BACKWARD:", node, valueMap);
+    // console.log("FORWARD MAPPING:", forwardMapping);
 
-    if (valueMap.has(node)) return valueMap.get(node);
+    return BijectionBase({
+      forward: (x) => {
+        const outputs = source.forward(x);
+        // console.log("OUTS:", outputs);
 
-    let inputs = node.sinks.map((sink) => backward(sink, valueMap));
-    inputs = node.b.arity.right === 1 ? inputs[0] : inputs;
-    const value = node.b.backward(inputs);
+        const result = sinks
+          .map(({ sink, arity }) => {
+            const outputGroupIndices = forwardMapping.get(sink);
+            if (!outputGroupIndices) throw new Error(`A sink is not connected!`);
 
-    valueMap.set(node, value);
+            const outputGroup = outputGroupIndices.map((index) => outputs[index]);
+            // console.log("OUTPUT GROUP:", outputGroup);
 
-    return value;
-  };
+            const input = outputGroup.reduce((a, b) => {
+              if (a !== b)
+                throw new Error(`Outputs that have to be merged are not all equal: ${JSON.stringify(outputGroup)}`);
+              return a;
+            });
 
-  return BijectionBase({
-    _debug: source.b._debug,
-    arity: { left: 1, right: sinks.length },
-    forward: (x) => {
-      const sinkMap = new Map(sinks.map((sink) => [sink, []]));
-      forward(sinkMap, source, x);
+            // console.log("PASS TO SINK:", sink, input, sink.forward(input));
 
-      const result = sinks.map((sink) => {
-        const results = sinkMap.get(sink);
+            const output = sink.forward(input);
+            return arity === 1 ? [output] : output.slice(0, arity);
+          })
+          .reduce((a, b) => (a.push(...b), a), []);
+        // console.log("RES:", result);
 
-        if (results.length === 0) throw new Error(`No result has been produced for sink "${sink.name}"`);
+        return result;
+      },
+      backward: (...ys) => {
+        // console.log("BACKWARD:", ys, backwardMapping);
 
-        return results.reduce((total, current) => {
-          if (total !== current)
-            throw new Error(
-              `Not all results of bijection "${source.b._debug}" for sink "${sink.name}" are equal: ${JSON.stringify(
-                results
-              )}`
-            );
-          return total;
+        let inputIndex = 0;
+        const outputs = sinks.map(({ sink, arity }) => {
+          // console.log("PASS:", sink, ys.slice(inputIndex, inputIndex + arity));
+          const result = sink.backward(...ys.slice(inputIndex, inputIndex + arity));
+          inputIndex += arity;
+          return result;
         });
-      });
 
-      return result.length === 1 ? result[0] : result;
+        // console.log("OUTPUTS:", outputs);
+
+        const result = source.backward(...backwardMapping.map((i) => outputs[i]));
+        // console.log("RES:", result);
+
+        return result;
+      },
+    });
+  },
+});
+
+const bijection = (context) =>
+  bijectionArrow(({ sink, connect }) => {
+    const nodes = new Set();
+
+    const wrap = (b) => {
+      if (nodes.has(b)) return b;
+      if (typeof b === "object")
+        return connect(destructure(...Object.keys(b)), ...Object.keys(b).map((key) => wrap(b[key])));
+
+      throw new Error(`Unknown construct: ${JSON.stringify(b)}`);
+    };
+
+    const res = context({
+      sink: (...args) => {
+        const node = sink(...args);
+        nodes.add(node);
+        return node;
+      },
+      string: (arg) => {
+        const node = connect(isType("string"), arg);
+        nodes.add(node);
+        return node;
+      },
+      number: (arg) => {
+        const node = connect(isType("number"), arg);
+        nodes.add(node);
+        return node;
+      },
+      boolean: (arg) => {
+        const node = connect(isType("boolean"), arg);
+        nodes.add(node);
+        return node;
+      },
+    });
+
+    return wrap(res);
+  });
+
+bijection.parallel = (itemBijections) =>
+  BijectionBase({
+    _debug: itemBijections.map((b) => b._debug).join(" &&& "),
+    forward: (xs) => {
+      if (!Array.isArray(xs))
+        throw new Error(`bijection.parallel.forward expects an array, but got: ${JSON.stringify(xs)}`);
+
+      return itemBijections.map((b, i) => b.forward(xs[i]));
     },
-    backward: (y) => {
-      const valueMap = new Map();
-      const arity = source.b.arity.right;
-      const values = arity === 1 ? [y] : y;
+    backward: (ys) => {
+      if (!Array.isArray(ys) || ys.length !== itemBijections.length)
+        throw new Error(`bijection.parallel.backward expects an array, but got: ${JSON.stringify(ys)}`);
 
-      values.forEach((value, index) => {
-        valueMap.set(sinks[index], value);
-      });
-
-      return backward(source, valueMap);
+      return itemBijections.map((b, i) => b.forward(ys[i]));
     },
   });
-}
+
+export default bijection;

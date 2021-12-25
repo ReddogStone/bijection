@@ -1,12 +1,8 @@
-import bijection from "./bijection";
 import identity from "./identity";
 import { testBijection, testNotBijection } from "./utils/test-utils";
 
 describe("Identity bijection", () => {
-  const id = bijection(({ sink }) => {
-    const a = sink("a");
-    return identity(a);
-  });
+  const id = identity();
 
   testBijection(id, undefined, undefined);
   testBijection(id, null, null);
