@@ -1,11 +1,12 @@
 {
-    "version": "0.0.1",
-    "type": "module",
-    "scripts": {
-        "test": "jest"
-    },
-    "dependencies": {
-        "@babel/plugin-transform-modules-commonjs": "^7.16.0",
-        "jest": "^27.4.3"
-    }
+  "name": "bijection",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "@babel/plugin-transform-modules-commonjs": "^7.16.0",
+    "jest": "^27.4.3"
+  }
 }
